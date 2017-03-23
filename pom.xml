@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>pw.krejci</groupId>
   <artifactId>multi-release-jar-maven-plugin</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
+
+  <name>Multi Release JAR Maven Plugin</name>
+  <description>Enables building of multi-release JARs using Maven.</description>
+  <url>https://github.com/metlos/multi-release-jar-maven-plugin</url>
 
   <properties>
     <maven.version>3.3.9</maven.version>
@@ -58,6 +60,15 @@
   <build>
     <plugins>
       <plugin>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>2.5.3</version>
+        <configuration>
+          <releaseProfiles>release,release-profile</releaseProfiles>
+          <pushChanges>false</pushChanges>
+          <preparationGoals>clean verify</preparationGoals>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-plugin-plugin</artifactId>
         <version>${maven-plugin-plugin.version}</version>
@@ -106,4 +117,82 @@
       </plugin>
     </plugins>
   </build>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <organization>
+    <name>Lukas Krejci</name>
+    <url>http://lukas.krejci.pw</url>
+  </organization>
+
+  <developers>
+    <developer>
+      <name>Lukas Krejci</name>
+      <email>lukas@krejci.pw</email>
+      <url>http://lukas.krejci.pw</url>
+      <timezone>+1</timezone>
+    </developer>
+  </developers>
+
+  <issueManagement>
+    <system>github-issues</system>
+    <url>https://github.com/metlos/multi-release-jar-maven-plugin/issues</url>
+  </issueManagement>
+
+
+  <scm>
+    <connection>scm:git:git://github.com/metlos/multi-release-jar-maven-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/metlos/multi-release-jar-maven-plugin.git</developerConnection>
+    <url>https://github.com/metlos/multi-release-jar-maven-plugin</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>
