@@ -1,0 +1,144 @@
+== Multi Release JAR Maven Plugin
+
+Java 9 is getting released shortly but Maven still lacks support for multirelease JARs.
+
+There are solutions to build them using existing Maven plugins (like
+http://in.relation.to/2017/02/13/building-multi-release-jars-with-maven[this] or
+http://word-bits.flurg.com/multrelease-jars/[this]) but they all lack the flexibility
+and features of the standard maven compiler plugin.
+
+This plugin is a quick and dirty solution to the current lack of tooling. It introduces
+a new packaging and a new source directory to build multi-release jars with the full
+feature set of the maven compiler plugin.
+
+=== Getting Started
+
+NOTE: For all this to work, you need to run Maven using Java 9.
+
+First, you need to define this plugin as a build extension in your POM.
+
+```xml
+<build>
+  <extensions>
+    <extension>
+      <groupId>pw.krejci</groupId>
+      <artifactId>multi-release-jar-maven-plugin</artifactId>
+      <version>...</version>
+    </extension>
+  </extensions>
+  ...
+```
+
+Next, you need to change the packaging of your module to
+
+```xml
+<packaging>multi-release-jar</packaging>
+```
+
+And that's it for the basic setup in `pom.xml`.
+
+Now you need to actually add your sources for different java releases.
+For each java release, the corresponding sources should go into `java-mr/<RELEASE-NUMBER>`. E.g. for Java 9 you put
+the Java 9 specific sources into `src/main/java-mr/9` directory.
+
+Now when you compile the module, classes from `src/main/java` will be normally put into the jar while classes from
+`src/main/java-mr/9` will end up in `META-INF/versions/9` of the resulting jar.
+
+=== Controlling Compilation
+
+The `multi-release-jar-maven-plugin` `compile` goal has the same configuration properties as the classic
+`maven-compiler-plugin`.
+
+To compile the main sources as Java 8, you need to configure it as you would the maven compiler plugin, i.e. either
+using properties `maven.compiler.source` and `maven.compiler.target` set to `1.8`
+
+```xml
+<properties>
+  <maven.compiler.source>1.8</maven.compiler.source>
+  <maven.compiler.target>1.8</maven.compiler.target>
+</properties>
+```
+
+or by configuring the plugin itself like so:
+
+```xml
+<build>
+  <plugins>
+    <plugin>
+      <groupId>pw.krejci</groupId>
+      <artifactId>multi-release-jar-maven-plugin</artifactId>
+      <version>...</version>
+      <configuration>
+        <source>1.8</source>
+        <target>1.8</source>
+      </configuration>
+    </plugin>
+    ...
+```
+
+To provide different configuration properties to the compiler when compiling for different than the default release,
+you can use:
+
+```xml
+<build>
+  <plugins>
+    <plugin>
+      <groupId>pw.krejci</groupId>
+      <artifactId>multi-release-jar-maven-plugin</artifactId>
+      <version>...</version>
+      <configuration>
+        <perReleaseConfiguration>
+          <release>9</release>
+          <configuration>
+            <compilerArguments>
+              <arg>-Xlint</arg>
+            </compilerArguments>
+          </configuration>
+        </perReleaseConfiguration>
+      </configuration>
+    </plugin>
+    ...
+```
+
+The main configuration supports all properties of the maven compiler plugin but only a handful of properties can be
+modified for per-release compiler configurations:
+
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#includes[includes]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#excludes[excludes]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#source[source]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#target[target]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#release[release]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#compilerArgument[compilerArgument]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#compilerArguments[compilerArguments]
+* https://maven.apache.org/plugins/maven-compiler-plugin/compile-mojo.html#compilerArgs[compilerArgs]
+
+
+=== Controlling Module Info
+
+Module info class(es) can be located in any (or all) of the parts of the multi-release jar. If the main classes are
+compiled for Java 8, you cannot easily compile `module-info.java` together with the rest of the classes though you maybe
+would like to. Having a `module-info.class` in the root of the jar makes it a module by default. If you had the
+`module-info.class` only in one (or more) of the version directories, that module info would be valid only when run with
+the corresponding java version.
+
+To compile for Java 8 by default but have a module-info.class also in the root of the jar, you can do the following:
+
+```xml
+<build>
+  <plugins>
+    <plugin>
+      <groupId>pw.krejci</groupId>
+      <artifactId>multi-release-jar-maven-plugin</artifactId>
+      <version>...</version>
+      <configuration>
+        <source>1.8</source>
+        <target>1.8</target>
+        <mainModuleInfo>9</mainModuleInfo>
+        ...
+      </configuration>
+      ...
+```
+
+Your `module-info.java` would be located in `src/main/java-mr/9` but would end up compiled in the root of the jar after
+compilation and packaging instead of `META-INF/versions/9` as it would without the `mainModuleInfo` configuration
+property.
