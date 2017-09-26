@@ -2,13 +2,17 @@ package pw.krejci.mrc;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 
+import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.plugins.jar.AbstractJarMojo;
+import org.apache.maven.plugins.jar.JarMojo;
 import org.apache.maven.shared.utils.io.FileUtils;
 
 /**
@@ -17,7 +21,7 @@ import org.apache.maven.shared.utils.io.FileUtils;
  */
 @Mojo( name = "jar", defaultPhase = LifecyclePhase.PACKAGE, threadSafe = true,
         requiresDependencyResolution = ResolutionScope.RUNTIME )
-public class JarMojo extends org.apache.maven.plugins.jar.JarMojo {
+public class MrJarMojo extends JarMojo {
 
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
     private File buildOutputDirectory;
@@ -76,6 +80,19 @@ public class JarMojo extends org.apache.maven.plugins.jar.JarMojo {
             }
         }
 
+        addMultiReleaseManifestEntry();
+
         super.execute();
+    }
+
+    private void addMultiReleaseManifestEntry() throws MojoExecutionException {
+        try {
+            Field archive = AbstractJarMojo.class.getDeclaredField("archive");
+            archive.setAccessible(true);
+            MavenArchiveConfiguration config = (MavenArchiveConfiguration) archive.get(this);
+            config.addManifestEntry("Multi-Release", "true");
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new MojoExecutionException("Could not modify the archive configuration.", e);
+        }
     }
 }
