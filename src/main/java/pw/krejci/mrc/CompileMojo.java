@@ -62,7 +62,10 @@ public class CompileMojo extends CompilerMojo {
     private String defaultSourceDirectory;
 
     @Override public void execute() throws MojoExecutionException, CompilationFailureException {
-        if (!multiReleaseSourcesDirectory.exists()) {
+        if (!MultiReleaseJarSupport.isAvailable() || !multiReleaseSourcesDirectory.exists()) {
+            if (!MultiReleaseJarSupport.isAvailable()) {
+                getLog().info("This java version does not support multi-release jars.");
+            }
             super.execute();
             return;
         }
@@ -122,20 +125,28 @@ public class CompileMojo extends CompilerMojo {
     }
 
     @Override protected List<String> getCompileSourceRoots() {
-        return super.getCompileSourceRoots().stream()
-                .map(e -> currentSourceDirectory != null && e.equals(defaultSourceDirectory) ? currentSourceDirectory : e)
-                .collect(toList());
+        if (MultiReleaseJarSupport.isAvailable()) {
+            return super.getCompileSourceRoots().stream()
+                    .map(e -> currentSourceDirectory != null && e.equals(defaultSourceDirectory) ? currentSourceDirectory : e)
+                    .collect(toList());
+        } else {
+            return super.getCompileSourceRoots();
+        }
     }
 
     @Override protected List<String> getClasspathElements() {
-        String currentOutput = getProject().getBuild().getOutputDirectory();
-        return super.getClasspathElements().stream()
-                .map(e -> defaultOutputDirectory != null && e.equals(currentOutput) ? defaultOutputDirectory : e)
-                .collect(toList());
+        if (MultiReleaseJarSupport.isAvailable()) {
+            String currentOutput = getProject().getBuild().getOutputDirectory();
+            return super.getClasspathElements().stream()
+                    .map(e -> defaultOutputDirectory != null && e.equals(currentOutput) ? defaultOutputDirectory : e)
+                    .collect(toList());
+        } else {
+            return super.getClasspathElements();
+        }
     }
 
     @Override protected File getOutputDirectory() {
-        if (currentConfiguration == null) {
+        if (!MultiReleaseJarSupport.isAvailable() || currentConfiguration == null) {
             return super.getOutputDirectory();
         }
 
@@ -152,10 +163,18 @@ public class CompileMojo extends CompilerMojo {
     }
 
     @Override protected SourceInclusionScanner getSourceInclusionScanner(int staleMillis) {
-        SourceInclusionScanner scanner;
+        Set<String> includes;
+        Set<String> excludes;
 
-        Set<String> includes = getOrCall(Configuration::getIncludes, () -> this.includes);
-        Set<String> excludes = getOrCall(Configuration::getExcludes, () -> this.excludes);
+        if (MultiReleaseJarSupport.isAvailable()) {
+            includes = getOrCall(Configuration::getIncludes, () -> this.includes);
+            excludes = getOrCall(Configuration::getExcludes, () -> this.excludes);
+        } else {
+            includes = this.includes;
+            excludes = this.excludes;
+        }
+
+        SourceInclusionScanner scanner;
 
         if (includes.isEmpty() && excludes.isEmpty()) {
             scanner = new StaleSourceScanner(staleMillis);
@@ -170,10 +189,18 @@ public class CompileMojo extends CompilerMojo {
     }
 
     @Override protected SourceInclusionScanner getSourceInclusionScanner(String inputFileEnding) {
-        SourceInclusionScanner scanner;
+        Set<String> includes;
+        Set<String> excludes;
 
-        Set<String> includes = getOrCall(Configuration::getIncludes, () -> this.includes);
-        Set<String> excludes = getOrCall(Configuration::getExcludes, () -> this.excludes);
+        if (MultiReleaseJarSupport.isAvailable()) {
+            includes = getOrCall(Configuration::getIncludes, () -> this.includes);
+            excludes = getOrCall(Configuration::getExcludes, () -> this.excludes);
+        } else {
+            includes = this.includes;
+            excludes = this.excludes;
+        }
+
+        SourceInclusionScanner scanner;
 
         // it's not defined if we get the ending with or without the dot '.'
         String defaultIncludePattern = "**/*" + (inputFileEnding.startsWith(".") ? "" : ".") + inputFileEnding;
@@ -217,6 +244,10 @@ public class CompileMojo extends CompilerMojo {
 
     @SuppressWarnings("unchecked")
     private <T> T getOrCall(Function<Configuration, T> configOption, Supplier<T> call) {
+        if (!MultiReleaseJarSupport.isAvailable()) {
+            return call.get();
+        }
+
         if (currentConfiguration != null) {
             T val = configOption.apply(currentConfiguration.getConfiguration());
             if (val != null) {

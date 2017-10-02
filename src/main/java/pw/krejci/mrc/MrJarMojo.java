@@ -35,12 +35,20 @@ public class MrJarMojo extends JarMojo {
     @Parameter
     private String mainModuleInfo;
 
+
     @Override protected File getClassesDirectory() {
-        return multiReleaseClasses;
+        if (MultiReleaseJarSupport.isAvailable()) {
+            return multiReleaseClasses;
+        } else {
+            return super.getClassesDirectory();
+        }
     }
 
     @Override public void execute() throws MojoExecutionException {
-        if (!multiReleaseSourcesDirectory.exists()) {
+        if (!MultiReleaseJarSupport.isAvailable() || !multiReleaseSourcesDirectory.exists()) {
+            if (!MultiReleaseJarSupport.isAvailable()) {
+                getLog().info("This java version does not support multi-release jars.");
+            }
             super.execute();
             return;
         }
