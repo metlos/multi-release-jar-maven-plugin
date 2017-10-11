@@ -76,19 +76,30 @@ public class MrJarMojo extends JarMojo {
         }
 
         //noinspection ConstantConditions
-        for (File mrBase : multiReleaseSourcesDirectory.listFiles(File::isDirectory)) {
-            String release = mrBase.getName();
+        boolean addMultiReleaseEntry = false;
+        File[] sourceDirs = multiReleaseSourcesDirectory.listFiles(File::isDirectory);
 
-            File releaseOutput = CompileMojo.getOutputDirectory(buildOutputDirectory, release);
+        if (sourceDirs != null && sourceDirs.length > 0) {
+            for (File mrBase : sourceDirs) {
+                String release = mrBase.getName();
 
-            try {
-                FileUtils.copyDirectoryStructure(releaseOutput, new File(multiReleaseClasses, "META-INF/versions/" + release));
-            } catch (IOException e) {
-                throw new MojoExecutionException("Failed to copy " + releaseOutput + " to " + multiReleaseClasses + ".", e);
+                File releaseOutput = CompileMojo.getOutputDirectory(buildOutputDirectory, release);
+
+                String[] directChildren = releaseOutput.list();
+
+                addMultiReleaseEntry = addMultiReleaseEntry || (directChildren != null && directChildren.length > 0);
+
+                try {
+                    FileUtils.copyDirectoryStructure(releaseOutput, new File(multiReleaseClasses, "META-INF/versions/" + release));
+                } catch (IOException e) {
+                    throw new MojoExecutionException("Failed to copy " + releaseOutput + " to " + multiReleaseClasses + ".", e);
+                }
+            }
+
+            if (addMultiReleaseEntry) {
+                addMultiReleaseManifestEntry();
             }
         }
-
-        addMultiReleaseManifestEntry();
 
         super.execute();
     }
