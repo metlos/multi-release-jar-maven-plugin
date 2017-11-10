@@ -1,6 +1,6 @@
 == Multi Release JAR Maven Plugin
 
-Java 9 is getting released shortly but Maven still lacks support for multirelease JARs.
+Java 9 has been released but Maven still lacks support for multirelease JARs.
 
 There are solutions to build them using existing Maven plugins (like
 http://in.relation.to/2017/02/13/building-multi-release-jars-with-maven[this] or
