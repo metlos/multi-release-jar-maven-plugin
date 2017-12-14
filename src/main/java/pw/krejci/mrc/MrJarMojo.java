@@ -53,7 +53,7 @@ public class MrJarMojo extends JarMojo {
             return;
         }
 
-        if (!multiReleaseClasses.mkdirs()) {
+        if (!multiReleaseClasses.exists() && !multiReleaseClasses.mkdirs()) {
             throw new MojoExecutionException(
                     "Failed to create the directory for multi-release-jar: " + multiReleaseClasses);
         }
