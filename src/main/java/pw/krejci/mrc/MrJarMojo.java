@@ -65,7 +65,7 @@ public class MrJarMojo extends JarMojo {
         }
 
         if (mainModuleInfo != null) {
-            File sourceModuleInfo = new File(CompileMojo.getOutputDirectory(buildOutputDirectory, mainModuleInfo), "module-info.class");
+            File sourceModuleInfo = new File(CompileMojo.getOutputDirectoryForModuleDescriptor(buildOutputDirectory, mainModuleInfo), "module-info.class");
             File targetModuleInfo = new File(multiReleaseClasses, "module-info.class");
             try {
                 Files.move(sourceModuleInfo.toPath(), targetModuleInfo.toPath());
@@ -84,6 +84,7 @@ public class MrJarMojo extends JarMojo {
                 String release = mrBase.getName();
 
                 File releaseOutput = CompileMojo.getOutputDirectory(buildOutputDirectory, release);
+                File releaseDescriptor = CompileMojo.getOutputDirectoryForModuleDescriptor(buildOutputDirectory, release);
 
                 String[] directChildren = releaseOutput.list();
 
@@ -93,6 +94,14 @@ public class MrJarMojo extends JarMojo {
                     FileUtils.copyDirectoryStructure(releaseOutput, new File(multiReleaseClasses, "META-INF/versions/" + release));
                 } catch (IOException e) {
                     throw new MojoExecutionException("Failed to copy " + releaseOutput + " to " + multiReleaseClasses + ".", e);
+                }
+
+                if (releaseDescriptor.exists()) {
+                    try {
+                        FileUtils.copyDirectoryStructure(releaseDescriptor, new File(multiReleaseClasses, "META-INF/versions/" + release));
+                    } catch (IOException e) {
+                        throw new MojoExecutionException("Failed to copy " + releaseDescriptor + " to " + multiReleaseClasses + ".", e);
+                    }
                 }
             }
 

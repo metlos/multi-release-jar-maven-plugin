@@ -1,11 +1,21 @@
 package pw.krejci.mrc;
 
+import static java.util.Collections.asLifoQueue;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singleton;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -14,8 +24,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.compiler.CompilationFailureException;
 import org.apache.maven.plugin.compiler.CompilerMojo;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -60,6 +73,7 @@ public class CompileMojo extends CompilerMojo {
     private String currentSourceDirectory;
     private String defaultOutputDirectory;
     private String defaultSourceDirectory;
+    private boolean compilingModuleDescriptor;
 
     @Override public void execute() throws MojoExecutionException, CompilationFailureException {
         if (!MultiReleaseJarSupport.isAvailable() || !multiReleaseSourcesDirectory.exists()) {
@@ -117,8 +131,56 @@ public class CompileMojo extends CompilerMojo {
                     this.release = currentConfiguration.getConfiguration().getRelease();
                 }
 
+                File moduleDescriptor = new File(mrBase, "module-info.java");
+
+                if (moduleDescriptor.exists()) {
+                    // now, magic. In order to be able to effectively compile all sources just once, we need to make
+                    // sure that the module-info.java is actually compiled in a separate step and from a separate
+                    // directory than the rest of the MR sources. This is because module-info.java is compiled even if
+                    // it is not specifically mentioned amongst the source files. Because the main sources are already
+                    // compiled above we want to just reference them by classpath, not have them compiled again in the
+                    // target folder of this MR "section". But that would fail compilation, because module-info.java
+                    // would not be able to find their sources (if we added the base sources to the source path then any
+                    // referenced class (i.e. a class used in the MR sources) would be compiled again - we don't want
+                    // that).
+
+                    File copiedSourcesRoot = new File(new File(defaultOutputDirectory).getParent(),
+                            "sources-" + release);
+                    File sources = new File(copiedSourcesRoot, "sources");
+                    File descriptor = new File(copiedSourcesRoot, "descriptor");
+
+                    FileUtils.copyDirectory(mrBase, sources);
+                    FileUtils.moveFile(new File(sources, "module-info.java"), new File(descriptor, "module-info.java"));
+
+                    // ok, now we actually don't care whether we compile the module descriptor or the sources first.
+                    // so let's just start with the module descriptor...
+
+                    currentSourceDirectory = descriptor.getAbsolutePath();
+
+                    Set<String> configuredIncludes = currentConfiguration.getConfiguration().getIncludes();
+                    Set<String> configuredExcludes = currentConfiguration.getConfiguration().getExcludes();
+
+                    currentConfiguration.getConfiguration().setIncludes(singleton("module-info.java"));
+                    currentConfiguration.getConfiguration().setExcludes(emptySet());
+
+                    compilingModuleDescriptor = true;
+
+                    super.execute();
+
+                    // fine, now let's compile the rest...
+                    currentSourceDirectory = sources.getAbsolutePath();
+                    currentConfiguration.getConfiguration().setIncludes(configuredIncludes);
+                    currentConfiguration.getConfiguration().setExcludes(configuredExcludes);
+
+                    compilingModuleDescriptor = false;
+                } else {
+                    currentSourceDirectory = mrBase.getAbsolutePath();
+                }
+
                 super.execute();
             }
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to prepare multi-release sources for staged compilation.", e);
         } finally {
             getProject().getBuild().setOutputDirectory(defaultOutputDirectory);
         }
@@ -127,7 +189,19 @@ public class CompileMojo extends CompilerMojo {
     @Override protected List<String> getCompileSourceRoots() {
         if (MultiReleaseJarSupport.isAvailable()) {
             return super.getCompileSourceRoots().stream()
-                    .map(e -> currentSourceDirectory != null && e.equals(defaultSourceDirectory) ? currentSourceDirectory : e)
+                    .flatMap(e -> {
+                        if (currentConfiguration != null && e.equals(defaultSourceDirectory)) {
+                            if (compilingModuleDescriptor) {
+                                // when compiling the module descriptor, we need to see all the classes that can
+                                // participate in the module - these are all in the default source...
+                                return Stream.of(currentSourceDirectory, defaultSourceDirectory);
+                            } else {
+                                return Stream.of(currentSourceDirectory);
+                            }
+                        } else {
+                            return Stream.of(e);
+                        }
+                    })
                     .collect(toList());
         } else {
             return super.getCompileSourceRoots();
@@ -150,7 +224,9 @@ public class CompileMojo extends CompilerMojo {
             return super.getOutputDirectory();
         }
 
-        return getOutputDirectory(super.getOutputDirectory(), currentConfiguration.getRelease());
+        return compilingModuleDescriptor
+                ? getOutputDirectoryForModuleDescriptor(super.getOutputDirectory(), currentConfiguration.getRelease())
+                : getOutputDirectory(super.getOutputDirectory(), currentConfiguration.getRelease());
     }
 
     protected static File getOutputDirectory(File defaultOutputDirectory, String modifier) {
@@ -158,6 +234,15 @@ public class CompileMojo extends CompilerMojo {
         Path parent = p.getParent();
         Path fileName = p.getFileName();
         Path newPath = parent.resolve(fileName.toString() + "-" + modifier);
+
+        return newPath.toFile();
+    }
+
+    protected static File getOutputDirectoryForModuleDescriptor(File defaultOutputDirectory, String modifier) {
+        Path p = defaultOutputDirectory.toPath();
+        Path parent = p.getParent();
+        Path fileName = p.getFileName();
+        Path newPath = parent.resolve(fileName.toString() + "-" + modifier + "-descriptor");
 
         return newPath.toFile();
     }
