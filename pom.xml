@@ -4,7 +4,7 @@
 
   <groupId>pw.krejci</groupId>
   <artifactId>multi-release-jar-maven-plugin</artifactId>
-  <version>0.1.5</version>
+  <version>0.1.6-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Multi Release JAR Maven Plugin</name>
