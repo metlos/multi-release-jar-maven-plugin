@@ -1,5 +1,7 @@
 == Multi Release JAR Maven Plugin
 
+WARN: DO NOT USE THIS EXTENSION. It was meant as a quick hack to enable multi-release support in Maven until this is better supported in Maven itself. There is now a number of ways to construct multi-release jars, each of which is less hacky and more maintainable than this solution. Please consult https://maven.apache.org/plugins/maven-compiler-plugin/multirelease.html for more information.
+
 Java 9 has been released but Maven still lacks support for multirelease JARs.
 
 There are solutions to build them using existing Maven plugins (like
