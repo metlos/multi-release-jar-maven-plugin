@@ -72,7 +72,7 @@ or by configuring the plugin itself like so:
       <version>...</version>
       <configuration>
         <source>1.8</source>
-        <target>1.8</source>
+        <target>1.8</target>
       </configuration>
     </plugin>
     ...
