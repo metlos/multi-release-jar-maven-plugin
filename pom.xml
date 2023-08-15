@@ -12,7 +12,7 @@
   <url>https://github.com/metlos/multi-release-jar-maven-plugin</url>
 
   <properties>
-    <maven.version>3.3.9</maven.version>
+    <maven.version>3.8.1</maven.version>
     <maven-plugin-plugin.version>3.5</maven-plugin-plugin.version>
     <maven-invoker.version>1.9</maven-invoker.version>
     <maven.compiler.release>8</maven.compiler.release>
